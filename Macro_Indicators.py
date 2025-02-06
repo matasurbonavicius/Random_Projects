@@ -1,15 +1,13 @@
 import yfinance as yf
 import pandas as pd
 from fredapi import Fred
-import yfinance as yf
 import matplotlib.pyplot as plt
 from sklearn.mixture import GaussianMixture
 import numpy as np
 from sklearn.metrics import r2_score
 
 
-# API key (replace 'my key' with your FRED API key)
-api_key = '63982cb073ceed99e4a225a778c00b71'
+api_key = 'here'
 fred = Fred(api_key=api_key)
 
 # List of indicators and their respective FRED tickers
@@ -74,12 +72,13 @@ for y in range(1, 4):
         r2_values = {}
         
         # Generate scatter plots for all indicators
+        # right now I dont want to generate charts as they take a lot of time
         #fig, axes = plt.subplots(nrows=6, ncols=6, figsize=(20, 20), constrained_layout=True)
         
         indicators_list = list(indicators.keys())
         
         all_r2_values = {}
-        for i, indicator in enumerate(indicators_list):
+        for i, indicator in enumerate(indicators_list): #if you want to see charts change indicator to ax and indicators list to axes.ravel()
             if i < len(indicators_list):
                 indicator = indicators_list[i]
                 
