@@ -54,6 +54,7 @@ df_indicators_quarterly = df_indicators_quarterly.pct_change() * 100
 # Download SPX prices
 spx_data = yf.download('^GSPC', start='1970-01-01', end='2025-01-01')
 
+
 # Resample SPX data to quarterly by taking the last close of each quarter
 spx_data_quarterly = spx_data['Close'].resample('Q').last()
 
@@ -66,14 +67,17 @@ start_date = max(start_date_spx, start_date_macro)
 # Trim SPX data to the start date
 spx_data_quarterly = spx_data_quarterly[spx_data_quarterly.index >= start_date]
 
-#trim the macro data too, you can do:
+# Optionally, if you want to trim the macro data too, you can do:
 df_indicators_quarterly = df_indicators_quarterly[df_indicators_quarterly.index >= start_date]
+
 
 # Reindex the SPX data to match the index of df_indicators_quarterly
 spx_data_reindexed = spx_data_quarterly.reindex(df_indicators_quarterly.index)
 
+
 # Fill NaN values in the reindexed spx_data using the nearest non-NaN value from the original spx_data
 spx_data_reindexed = spx_data_reindexed.fillna(spx_data['Close'].reindex(df_indicators_quarterly.index, method='nearest'))
+
 
 # Merge SPX with our quarterly data
 df_merged = df_indicators_quarterly.merge(spx_data_reindexed, left_index=True, right_index=True, how='left')
@@ -81,12 +85,12 @@ df_merged = df_indicators_quarterly.merge(spx_data_reindexed, left_index=True, r
 original_df_merged = df_merged.copy()
 
 
-for y in range(1, 3):
+for y in range(1, 2):
     print(f'Range Iteration no. {y}')
     df_merged['Close Chg'] = original_df_merged['Close'].pct_change() * 100
 
     
-    for x in range(1,2):
+    for x in range(-1,2):
         df_merged['Shifted Close'] = df_merged['Close Chg'].shift(x)
         r2_values = {}
         df_merged = df_merged.dropna()
@@ -102,9 +106,8 @@ for y in range(1, 3):
                 indicator = indicators_list[i]
                 
                 # Use the 'Shifted Close' column for plotting
-                valid_data = df_merged[[indicator, 'Shifted Close']]
+                valid_data = df_merged[[indicator, 'Shifted Close']].replace([np.inf, -np.inf], np.nan).dropna()
                 ax.scatter(valid_data[indicator], valid_data['Shifted Close'], alpha=0.6, edgecolors="k", linewidths=0.5)
-                print(valid_data)
                 
                 # Add a linear regression line
                 try:
@@ -128,8 +131,7 @@ for y in range(1, 3):
         all_r2_values[x] = r2_values
         avg = sum(filter(None, r2_values.values())) / len(r2_values)
         
-        plt.tight_layout()
-        plt.show()
+        
 
         avg_value_dict = {}
         
@@ -150,3 +152,6 @@ for y in range(1, 3):
 
         for key, value in avg_value_dict.items():
             print(f'{key} - {value}')
+        
+        plt.tight_layout()
+        plt.show()
