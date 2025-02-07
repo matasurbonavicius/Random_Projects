@@ -67,7 +67,7 @@ start_date = max(start_date_spx, start_date_macro)
 # Trim SPX data to the start date
 spx_data_quarterly = spx_data_quarterly[spx_data_quarterly.index >= start_date]
 
-# Optionally, if you want to trim the macro data too, you can do:
+# Ttrim the macro data
 df_indicators_quarterly = df_indicators_quarterly[df_indicators_quarterly.index >= start_date]
 
 
@@ -76,7 +76,7 @@ spx_data_reindexed = spx_data_quarterly.reindex(df_indicators_quarterly.index)
 
 
 # Fill NaN values in the reindexed spx_data using the nearest non-NaN value from the original spx_data
-spx_data_reindexed = spx_data_reindexed.fillna(spx_data['Close'].reindex(df_indicators_quarterly.index, method='nearest'))
+spx_data_reindexed = spx_data_reindexed.fillna(spx_data['Close'].reindex(df_indicators_quarterly.index, method='nearest')) #<<<< Slight missmatch of dates introduced. But Shouldn't be a big deal
 
 
 # Merge SPX with our quarterly data
