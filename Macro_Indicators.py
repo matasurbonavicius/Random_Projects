@@ -1,13 +1,15 @@
 import yfinance as yf
 import pandas as pd
 from fredapi import Fred
+import yfinance as yf
 import matplotlib.pyplot as plt
 from sklearn.mixture import GaussianMixture
 import numpy as np
 from sklearn.metrics import r2_score
 
 
-api_key = 'here'
+# API key (replace 'my key' with your FRED API key)
+api_key = '63982cb073ceed99e4a225a778c00b71'
 fred = Fred(api_key=api_key)
 
 # List of indicators and their respective FRED tickers
@@ -38,64 +40,81 @@ indicators = {
 }
 
 
-# Fetch data and store in a dictionary
 data = {}
 for name, ticker in indicators.items():
     print(name)
     data[name] = fred.get_series(ticker, frequency='q')
 
-# Assuming 'data' is a dictionary containing your macroeconomic data
+# Convert dictionary to DataFrame
 df_indicators_quarterly = pd.DataFrame(data)
 
-# Convert macroeconomic data to quarterly percentage changes
+# Calculate quarterly percentage change for the macroeconomic data
 df_indicators_quarterly = df_indicators_quarterly.pct_change() * 100
 
 # Download SPX prices
-spx_data = yf.download('^GSPC', start='1970-01-01', end='2023-09-24')
+spx_data = yf.download('^GSPC', start='1970-01-01', end='2025-01-01')
+
 
 # Resample SPX data to quarterly by taking the last close of each quarter
 spx_data_quarterly = spx_data['Close'].resample('Q').last()
 
-# Calculate quarterly returns for SPX by computing percentage change
-spx_return_quarterly = spx_data_quarterly.pct_change() * 100
+start_date_spx = spx_data_quarterly.index.min()  # Use the earliest date from SPX data
+start_date_macro = df_indicators_quarterly.index.min()  # Use the earliest date from macro data
 
-# Reindex the quarterly S&P 500 returns to match the index of df_indicators_quarterly
-spx_return_quarterly = spx_return_quarterly.reindex(df_indicators_quarterly.index)
+# Use the later of the two dates
+start_date = max(start_date_spx, start_date_macro)
 
-# Merge the quarterly macro data and quarterly S&P 500 returns
-df_merged = df_indicators_quarterly.merge(spx_return_quarterly, left_index=True, right_index=True, how='left')
+# Trim SPX data to the start date
+spx_data_quarterly = spx_data_quarterly[spx_data_quarterly.index >= start_date]
 
-# Save original data for reference
+# Optionally, if you want to trim the macro data too, you can do:
+df_indicators_quarterly = df_indicators_quarterly[df_indicators_quarterly.index >= start_date]
+
+
+# Reindex the SPX data to match the index of df_indicators_quarterly
+spx_data_reindexed = spx_data_quarterly.reindex(df_indicators_quarterly.index)
+
+
+# Fill NaN values in the reindexed spx_data using the nearest non-NaN value from the original spx_data
+spx_data_reindexed = spx_data_reindexed.fillna(spx_data['Close'].reindex(df_indicators_quarterly.index, method='nearest'))
+
+
+# Merge SPX with our quarterly data
+df_merged = df_indicators_quarterly.merge(spx_data_reindexed, left_index=True, right_index=True, how='left')
+
 original_df_merged = df_merged.copy()
 
-for y in range(1, 4):
+
+for y in range(1, 3):
     print(f'Range Iteration no. {y}')
     df_merged['Close Chg'] = original_df_merged['Close'].pct_change() * 100
+
     
-    for x in range(-4,4):
+    for x in range(1,2):
         df_merged['Shifted Close'] = df_merged['Close Chg'].shift(x)
         r2_values = {}
+        df_merged = df_merged.dropna()
         
         # Generate scatter plots for all indicators
-        # right now I dont want to generate charts as they take a lot of time
-        #fig, axes = plt.subplots(nrows=6, ncols=6, figsize=(20, 20), constrained_layout=True)
+        fig, axes = plt.subplots(nrows=6, ncols=6, figsize=(20, 20), constrained_layout=True)
         
         indicators_list = list(indicators.keys())
         
         all_r2_values = {}
-        for i, indicator in enumerate(indicators_list): #if you want to see charts change indicator to ax and indicators list to axes.ravel()
+        for i, ax in enumerate(axes.ravel()):
             if i < len(indicators_list):
                 indicator = indicators_list[i]
                 
                 # Use the 'Shifted Close' column for plotting
-                valid_data = df_merged[[indicator, 'Shifted Close']].replace([np.inf, -np.inf], np.nan).dropna()
-                #ax.scatter(valid_data[indicator], valid_data['Shifted Close'], alpha=0.6, edgecolors="k", linewidths=0.5)
+                valid_data = df_merged[[indicator, 'Shifted Close']]
+                ax.scatter(valid_data[indicator], valid_data['Shifted Close'], alpha=0.6, edgecolors="k", linewidths=0.5)
+                print(valid_data)
                 
                 # Add a linear regression line
                 try:
                     m, b = np.polyfit(valid_data[indicator], valid_data['Shifted Close'], 1)
                     predicted = m * valid_data[indicator] + b
-                    #ax.plot(valid_data[indicator], predicted, color='red')
+                    ax.plot(valid_data[indicator], predicted, color='red')
                     
                     # Calculate R-squared
                     r2 = r2_score(valid_data['Shifted Close'], predicted)
@@ -105,21 +124,21 @@ for y in range(1, 4):
                     print(f"Couldn't fit data for indicator: {indicator}")
                     r2_values[indicator] = None  # or some default value
                 
-                #ax.set_title(indicator)
-                #ax.set_xlabel('Quarterly Indicator Value')
-                #ax.set_ylabel(f'SPX Quarterly Returns')
-                #ax.grid(True, which="both", ls="--", c='0.65')
+                ax.set_title(indicator)
+                ax.set_xlabel('Quarterly Indicator Value')
+                ax.set_ylabel(f'SPX Quarterly Returns')
+                ax.grid(True, which="both", ls="--", c='0.65')
     
         all_r2_values[x] = r2_values
         avg = sum(filter(None, r2_values.values())) / len(r2_values)
         
-        #plt.tight_layout()
-        #plt.show()
+        plt.tight_layout()
+        plt.show()
 
         avg_value_dict = {}
         
         for shift, r2s in all_r2_values.items():
-            print(f"Shift (Quarters): {shift}, Period (Quarters): {y}")
+            print(f"Shift: {shift}, Period: {y}")
             total_r2 = 0
             valid_r2_count = 0
             for indicator, r2 in r2s.items():
