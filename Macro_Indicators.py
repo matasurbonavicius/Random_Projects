@@ -44,23 +44,28 @@ for name, ticker in indicators.items():
     print(name)
     data[name] = fred.get_series(ticker, frequency='q')
 
-# Convert dictionary to DataFrame
+# Assuming 'data' is a dictionary containing your macroeconomic data
 df_indicators_quarterly = pd.DataFrame(data)
-    
+
+# Convert macroeconomic data to quarterly percentage changes
 df_indicators_quarterly = df_indicators_quarterly.pct_change() * 100
 
 # Download SPX prices
 spx_data = yf.download('^GSPC', start='1970-01-01', end='2023-09-24')
 
-# Reindex spx_data to match the index of df_indicators_quarterly
-spx_data_reindexed = spx_data.reindex(df_indicators_quarterly.index)
+# Resample SPX data to quarterly by taking the last close of each quarter
+spx_data_quarterly = spx_data['Close'].resample('Q').last()
 
-# Fill NaN values in the reindexed spx_data using the nearest non-NaN value from the original spx_data
-spx_data_reindexed['Close'] = spx_data_reindexed['Close'].fillna(spx_data['Close'].reindex(df_indicators_quarterly.index, method='nearest'))
+# Calculate quarterly returns for SPX by computing percentage change
+spx_return_quarterly = spx_data_quarterly.pct_change() * 100
 
-# Merge SPX with our quarterly data
-df_merged = df_indicators_quarterly.merge(spx_data_reindexed['Close'], left_index=True, right_index=True, how='left')
+# Reindex the quarterly S&P 500 returns to match the index of df_indicators_quarterly
+spx_return_quarterly = spx_return_quarterly.reindex(df_indicators_quarterly.index)
 
+# Merge the quarterly macro data and quarterly S&P 500 returns
+df_merged = df_indicators_quarterly.merge(spx_return_quarterly, left_index=True, right_index=True, how='left')
+
+# Save original data for reference
 original_df_merged = df_merged.copy()
 
 for y in range(1, 4):
