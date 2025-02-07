@@ -54,7 +54,6 @@ df_indicators_quarterly = df_indicators_quarterly.pct_change() * 100
 # Download SPX prices
 spx_data = yf.download('^GSPC', start='1970-01-01', end='2025-01-01')
 
-
 # Resample SPX data to quarterly by taking the last close of each quarter
 spx_data_quarterly = spx_data['Close'].resample('Q').last()
 
@@ -67,17 +66,14 @@ start_date = max(start_date_spx, start_date_macro)
 # Trim SPX data to the start date
 spx_data_quarterly = spx_data_quarterly[spx_data_quarterly.index >= start_date]
 
-# Optionally, if you want to trim the macro data too, you can do:
+#trim the macro data too, you can do:
 df_indicators_quarterly = df_indicators_quarterly[df_indicators_quarterly.index >= start_date]
-
 
 # Reindex the SPX data to match the index of df_indicators_quarterly
 spx_data_reindexed = spx_data_quarterly.reindex(df_indicators_quarterly.index)
 
-
 # Fill NaN values in the reindexed spx_data using the nearest non-NaN value from the original spx_data
 spx_data_reindexed = spx_data_reindexed.fillna(spx_data['Close'].reindex(df_indicators_quarterly.index, method='nearest'))
-
 
 # Merge SPX with our quarterly data
 df_merged = df_indicators_quarterly.merge(spx_data_reindexed, left_index=True, right_index=True, how='left')
